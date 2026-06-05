@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>まほろばライブラリー</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #16213e;
+      padding: 16px 24px;
+      border-bottom: 1px solid #0f3460;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    header h1 { font-size: 20px; color: #e2b96f; }
+    header p { font-size: 12px; color: #888; }
+
+    .container { max-width: 900px; margin: 0 auto; padding: 24px; }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid #0f3460;
+    }
+
+    .tab {
+      padding: 10px 20px;
+      border: none;
+      background: none;
+      color: #888;
+      cursor: pointer;
+      font-size: 14px;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .tab.active { color: #e2b96f; border-bottom-color: #e2b96f; }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    .card {
+      background: #16213e;
+      border: 1px solid #0f3460;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    label { display: block; font-size: 13px; color: #aaa; margin-bottom: 6px; }
+
+    input[type="text"], input[type="password"], textarea, select {
+      width: 100%;
+      background: #0f3460;
+      border: 1px solid #1a4a7a;
+      border-radius: 6px;
+      color: #e0e0e0;
+      padding: 10px 12px;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus, textarea:focus, select:focus { border-color: #e2b96f; }
+
+    textarea { resize: vertical; min-height: 120px; }
+
+    .row { display: flex; gap: 12px; }
+    .row > * { flex: 1; }
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-family: inherit;
+      transition: opacity 0.2s;
+    }
+
+    button:hover { opacity: 0.85; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-primary { background: #e2b96f; color: #1a1a2e; font-weight: bold; }
+    .btn-secondary { background: #0f3460; color: #e0e0e0; border: 1px solid #1a4a7a; }
+    .btn-danger { background: #7a1a1a; color: #e0e0e0; }
+    .btn-icon { padding: 8px 14px; font-size: 18px; }
+
+    .btn-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+    .summary-box {
+      background: #0f3460;
+      border: 1px solid #1a4a7a;
+      border-radius: 6px;
+      padding: 14px;
+      font-size: 14px;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      min-height: 80px;
+    }
+
+    .player {
+      background: #0f2040;
+      border: 1px solid #e2b96f44;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 12px;
+    }
+
+    .player-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+    .speed-label { font-size: 12px; color: #aaa; }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      background: #0f3460;
+      border: none;
+      border-radius: 4px;
+      height: 4px;
+      cursor: pointer;
+      width: 120px;
+      padding: 0;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #e2b96f;
+    }
+
+    .tag { display: inline-block; background: #0f3460; border: 1px solid #1a4a7a; border-radius: 12px; padding: 2px 10px; font-size: 12px; color: #aaa; }
+
+    .book-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .book-item {
+      background: #16213e;
+      border: 1px solid #0f3460;
+      border-radius: 8px;
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .book-item:hover { border-color: #e2b96f88; }
+    .book-item.selected { border-color: #e2b96f; }
+
+    .book-item h3 { font-size: 15px; color: #e2b96f; margin-bottom: 4px; }
+    .book-item p { font-size: 12px; color: #888; }
+
+    .book-actions { display: flex; gap: 6px; }
+
+    .status {
+      font-size: 13px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin-top: 8px;
+    }
+
+    .status.info { background: #0f3460; color: #88aacc; }
+    .status.success { background: #0f3020; color: #88cc88; }
+    .status.error { background: #3a0f0f; color: #cc8888; }
+
+    .spinning { display: inline-block; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #searchInput { margin-bottom: 12px; }
+
+    .highlight { background: #e2b96f44; border-radius: 2px; }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #000a;
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: #16213e;
+      border: 1px solid #0f3460;
+      border-radius: 10px;
+      padding: 24px;
+      width: min(500px, 90vw);
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .modal h2 { color: #e2b96f; margin-bottom: 16px; }
+    .modal .btn-row { justify-content: flex-end; }
+
+    /* Camera */
+    #cameraModal .modal { width: min(680px, 95vw); }
+    #cameraVideo { width: 100%; border-radius: 6px; background: #000; display: block; }
+    #cameraCanvas { display: none; }
+    #capturedPreview { width: 100%; border-radius: 6px; display: none; margin-top: 8px; }
+    .ocr-result { background: #0f3460; border: 1px solid #1a4a7a; border-radius: 6px; padding: 12px; font-size: 13px; line-height: 1.8; white-space: pre-wrap; max-height: 200px; overflow-y: auto; margin-top: 8px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>📚 まほろばライブラリー</h1>
+    <p>源泉を、声で呼び出す</p>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- API Key設定 -->
+  <div class="card" id="apiKeyCard">
+    <label>Gemini API Key</label>
+    <div style="display:flex;gap:8px">
+      <input type="password" id="apiKeyInput" placeholder="AIza...">
+      <button class="btn-primary" onclick="saveApiKey()">保存</button>
+    </div>
+    <div id="apiKeyStatus"></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('library')">📖 ライブラリ</button>
+    <button class="tab" onclick="switchTab('add')">➕ 追加</button>
+    <button class="tab" onclick="switchTab('search')">🔍 原文検索</button>
+  </div>
+
+  <!-- ライブラリパネル -->
+  <div id="panel-library" class="panel active">
+    <input type="text" id="searchInput" placeholder="タイトル・カテゴリ・タグで絞り込み..." oninput="renderLibrary()">
+    <div id="bookList" class="book-list"></div>
+
+    <!-- 再生パネル -->
+    <div id="playerPanel" style="display:none" class="card">
+      <h3 id="playerTitle" style="color:#e2b96f;margin-bottom:8px"></h3>
+      <p id="playerAuthor" style="font-size:12px;color:#888;margin-bottom:12px"></p>
+
+      <div style="margin-bottom:8px">
+        <label>要約（短）</label>
+        <div id="summaryShort" class="summary-box"></div>
+      </div>
+      <div>
+        <label>要約（詳細）</label>
+        <div id="summaryFull" class="summary-box" style="max-height:200px;overflow-y:auto"></div>
+      </div>
+
+      <div class="player">
+        <div class="player-controls">
+          <button class="btn-primary btn-icon" id="playBtn" onclick="togglePlay()">▶</button>
+          <button class="btn-secondary btn-icon" onclick="stopSpeech()">⏹</button>
+          <span class="speed-label">速度</span>
+          <input type="range" id="speedRange" min="0.5" max="2" step="0.1" value="1" oninput="updateSpeed()">
+          <span id="speedVal">1.0x</span>
+          <select id="modeSelect" style="width:auto">
+            <option value="short">要約（短）</option>
+            <option value="full">要約（詳細）</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn-secondary" onclick="closePlayer()">閉じる</button>
+        <button class="btn-danger" onclick="deleteBook()">削除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 追加パネル -->
+  <div id="panel-add" class="panel">
+    <div class="card">
+      <h2 style="color:#e2b96f;margin-bottom:16px">本を追加</h2>
+
+      <div class="row" style="margin-bottom:12px">
+        <div>
+          <label>書名 *</label>
+          <input type="text" id="addTitle" placeholder="古事記">
+        </div>
+        <div>
+          <label>著者</label>
+          <input type="text" id="addAuthor" placeholder="太安万侶">
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:12px">
+        <div>
+          <label>カテゴリ</label>
+          <select id="addCategory">
+            <option value="日本史・古典">日本史・古典</option>
+            <option value="思想・判断軸">思想・判断軸</option>
+            <option value="技術・IT">技術・IT</option>
+            <option value="ビジネス">ビジネス</option>
+            <option value="その他">その他</option>
+          </select>
+        </div>
+        <div>
+          <label>タグ（カンマ区切り）</label>
+          <input type="text" id="addTags" placeholder="古典,神話,日本">
+        </div>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <label>出典</label>
+        <select id="addSource">
+          <option value="青空文庫">青空文庫</option>
+          <option value="自炊">自炊</option>
+          <option value="手入力">手入力</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <label>テキスト（ペーストまたは入力）</label>
+        <textarea id="addText" placeholder="本文をここにペースト...&#10;&#10;要約のみ手入力も可。" style="min-height:200px"></textarea>
+        <div class="btn-row" style="margin-top:8px">
+          <button class="btn-secondary" onclick="openCamera()">📷 カメラで撮影してOCR</button>
+        </div>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <label>要約（短・3行）</label>
+        <textarea id="addSummaryShort" placeholder="手動入力 or 自動生成" style="min-height:80px"></textarea>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <label>要約（詳細）</label>
+        <textarea id="addSummaryFull" placeholder="手動入力 or 自動生成" style="min-height:120px"></textarea>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn-secondary" id="generateBtn" onclick="generateSummary()">✨ Geminiで要約生成</button>
+        <button class="btn-primary" onclick="saveBook()">💾 保存</button>
+      </div>
+      <div id="addStatus"></div>
+    </div>
+  </div>
+
+  <!-- 原文検索パネル -->
+  <div id="panel-search" class="panel">
+    <div class="card">
+      <label>検索キーワード</label>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <input type="text" id="fullTextSearch" placeholder="イザナギ">
+        <button class="btn-primary" onclick="searchFullText()">検索</button>
+      </div>
+      <div id="searchResults"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- カメラモーダル -->
+<div class="modal-overlay" id="cameraModal">
+  <div class="modal">
+    <h2>📷 カメラ撮影 → OCR</h2>
+    <video id="cameraVideo" autoplay playsinline></video>
+    <canvas id="cameraCanvas"></canvas>
+    <img id="capturedPreview" alt="撮影画像">
+    <div id="ocrResult" class="ocr-result" style="display:none"></div>
+    <div id="cameraStatus"></div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn-secondary" onclick="closeCamera()">閉じる</button>
+      <button class="btn-secondary" id="retakeBtn" onclick="retake()" style="display:none">撮り直し</button>
+      <button class="btn-primary" id="captureBtn" onclick="capture()">📸 撮影</button>
+      <button class="btn-primary" id="ocrBtn" onclick="runOCR()" style="display:none">🔍 OCR実行</button>
+      <button class="btn-primary" id="appendBtn" onclick="appendToText()" style="display:none">✅ テキストに追加</button>
+    </div>
+  </div>
+</div>
+
+<!-- 削除確認モーダル -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <h2>削除の確認</h2>
+    <p id="deleteModalMsg" style="margin-bottom:16px;color:#ccc"></p>
+    <div class="btn-row">
+      <button class="btn-secondary" onclick="closeDeleteModal()">キャンセル</button>
+      <button class="btn-danger" onclick="confirmDelete()">削除</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---- State ----
+  let books = JSON.parse(localStorage.getItem('mahoroba_books') || '[]');
+  let selectedBookId = null;
+  let speaking = false;
+  let utterance = null;
+  let deleteTargetId = null;
+
+  // ---- API Key ----
+  function saveApiKey() {
+    const key = document.getElementById('apiKeyInput').value.trim();
+    if (!key) return;
+    localStorage.setItem('gemini_api_key', key);
+    document.getElementById('apiKeyInput').value = '';
+    showStatus('apiKeyStatus', '✅ 保存しました', 'success');
+    setTimeout(() => showStatus('apiKeyStatus', '', ''), 2000);
+  }
+
+  function getApiKey() {
+    return localStorage.getItem('gemini_api_key') || '';
+  }
+
+  // On load, show masked key if exists
+  window.addEventListener('load', () => {
+    const key = getApiKey();
+    if (key) {
+      document.getElementById('apiKeyCard').querySelector('p') ||
+        (document.getElementById('apiKeyCard').innerHTML += `<p style="font-size:12px;color:#4a8;margin-top:6px">✅ APIキー設定済み</p>`);
+    }
+    renderLibrary();
+  });
+
+  // ---- Tabs ----
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById('panel-' + name).classList.add('active');
+  }
+
+  // ---- Library ----
+  function renderLibrary() {
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    const filtered = books.filter(b => {
+      if (!q) return true;
+      return (b.title + b.author + b.category + (b.tags||[]).join(' ')).toLowerCase().includes(q);
+    });
+
+    const list = document.getElementById('bookList');
+    if (filtered.length === 0) {
+      list.innerHTML = `<p style="color:#666;text-align:center;padding:40px">本が見つかりません</p>`;
+      return;
+    }
+
+    list.innerHTML = filtered.map(b => `
+      <div class="book-item ${b.id === selectedBookId ? 'selected' : ''}" onclick="selectBook('${b.id}')">
+        <div>
+          <h3>${escHtml(b.title)}</h3>
+          <p>${escHtml(b.author || '')} ${b.category ? '・' + escHtml(b.category) : ''}</p>
+          <div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">
+            ${(b.tags||[]).map(t => `<span class="tag">${escHtml(t)}</span>`).join('')}
+          </div>
+        </div>
+        <div class="book-actions">
+          <button class="btn-primary btn-icon" onclick="event.stopPropagation();quickPlay('${b.id}')">▶</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function selectBook(id) {
+    selectedBookId = id;
+    const b = books.find(x => x.id === id);
+    if (!b) return;
+
+    renderLibrary();
+
+    document.getElementById('playerTitle').textContent = b.title;
+    document.getElementById('playerAuthor').textContent = [b.author, b.category, b.source].filter(Boolean).join(' ・ ');
+    document.getElementById('summaryShort').textContent = b.summary_short || '（要約なし）';
+    document.getElementById('summaryFull').textContent = b.summary_full || '（詳細要約なし）';
+    document.getElementById('playerPanel').style.display = 'block';
+
+    stopSpeech();
+  }
+
+  function closePlayer() {
+    selectedBookId = null;
+    stopSpeech();
+    document.getElementById('playerPanel').style.display = 'none';
+    renderLibrary();
+  }
+
+  function quickPlay(id) {
+    selectBook(id);
+    setTimeout(() => togglePlay(), 100);
+  }
+
+  // ---- Speech ----
+  function togglePlay() {
+    if (speaking) {
+      window.speechSynthesis.pause();
+      speaking = false;
+      document.getElementById('playBtn').textContent = '▶';
+      return;
+    }
+
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+      speaking = true;
+      document.getElementById('playBtn').textContent = '⏸';
+      return;
+    }
+
+    const b = books.find(x => x.id === selectedBookId);
+    if (!b) return;
+
+    const mode = document.getElementById('modeSelect').value;
+    const text = mode === 'short' ? (b.summary_short || b.summary_full) : (b.summary_full || b.summary_short);
+    if (!text) { alert('再生するテキストがありません'); return; }
+
+    utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'ja-JP';
+    utterance.rate = parseFloat(document.getElementById('speedRange').value);
+
+    utterance.onend = () => {
+      speaking = false;
+      document.getElementById('playBtn').textContent = '▶';
+    };
+
+    window.speechSynthesis.speak(utterance);
+    speaking = true;
+    document.getElementById('playBtn').textContent = '⏸';
+  }
+
+  function stopSpeech() {
+    window.speechSynthesis.cancel();
+    speaking = false;
+    const btn = document.getElementById('playBtn');
+    if (btn) btn.textContent = '▶';
+  }
+
+  function updateSpeed() {
+    const v = parseFloat(document.getElementById('speedRange').value).toFixed(1);
+    document.getElementById('speedVal').textContent = v + 'x';
+    if (utterance) utterance.rate = parseFloat(v);
+  }
+
+  // ---- Save Book ----
+  function saveBook() {
+    const title = document.getElementById('addTitle').value.trim();
+    if (!title) { showStatus('addStatus', 'タイトルを入力してください', 'error'); return; }
+
+    const book = {
+      id: crypto.randomUUID(),
+      title,
+      author: document.getElementById('addAuthor').value.trim(),
+      category: document.getElementById('addCategory').value,
+      tags: document.getElementById('addTags').value.split(',').map(t => t.trim()).filter(Boolean),
+      summary_short: document.getElementById('addSummaryShort').value.trim(),
+      summary_full: document.getElementById('addSummaryFull').value.trim(),
+      full_text: document.getElementById('addText').value.trim(),
+      source: document.getElementById('addSource').value,
+      created_at: new Date().toISOString(),
+    };
+
+    books.unshift(book);
+    persistBooks();
+    clearAddForm();
+    showStatus('addStatus', '✅ 保存しました', 'success');
+    renderLibrary();
+  }
+
+  function clearAddForm() {
+    ['addTitle','addAuthor','addTags','addText','addSummaryShort','addSummaryFull'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+  }
+
+  function persistBooks() {
+    localStorage.setItem('mahoroba_books', JSON.stringify(books));
+  }
+
+  // ---- Gemini Summary ----
+  async function generateSummary() {
+    const apiKey = getApiKey();
+    if (!apiKey) { showStatus('addStatus', 'APIキーを設定してください', 'error'); return; }
+
+    const text = document.getElementById('addText').value.trim();
+    const title = document.getElementById('addTitle').value.trim();
+    if (!text) { showStatus('addStatus', 'テキストを入力してください', 'error'); return; }
+
+    const btn = document.getElementById('generateBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ 生成中...';
+    showStatus('addStatus', '⏳ Geminiで要約を生成しています...', 'info');
+
+    const prompt = `以下は「${title || '本'}」のテキストです。
+
+【指示】
+1. 3行以内の短い要約（summary_short）を作成してください
+2. 章ごとの詳細な要約（summary_full）を作成してください
+
+【出力形式】
+---SHORT---
+（3行以内の要約）
+---FULL---
+（詳細要約）
+
+【テキスト】
+${text.slice(0, 8000)}`;
+
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite-preview-06-17:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }]
+          })
+        }
+      );
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message || res.statusText);
+      }
+
+      const data = await res.json();
+      const output = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+      const shortMatch = output.match(/---SHORT---\s*([\s\S]*?)(?:---FULL---|$)/);
+      const fullMatch = output.match(/---FULL---\s*([\s\S]*?)$/);
+
+      if (shortMatch) document.getElementById('addSummaryShort').value = shortMatch[1].trim();
+      if (fullMatch) document.getElementById('addSummaryFull').value = fullMatch[1].trim();
+
+      showStatus('addStatus', '✅ 要約を生成しました', 'success');
+    } catch (e) {
+      showStatus('addStatus', '❌ エラー: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '✨ Geminiで要約生成';
+    }
+  }
+
+  // ---- Delete ----
+  function deleteBook() {
+    const b = books.find(x => x.id === selectedBookId);
+    if (!b) return;
+    deleteTargetId = b.id;
+    document.getElementById('deleteModalMsg').textContent = `「${b.title}」を削除しますか？`;
+    document.getElementById('deleteModal').classList.add('open');
+  }
+
+  function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.remove('open');
+    deleteTargetId = null;
+  }
+
+  function confirmDelete() {
+    books = books.filter(x => x.id !== deleteTargetId);
+    persistBooks();
+    closeDeleteModal();
+    closePlayer();
+    renderLibrary();
+  }
+
+  // ---- Full-text Search ----
+  function searchFullText() {
+    const q = document.getElementById('fullTextSearch').value.trim();
+    const results = document.getElementById('searchResults');
+    if (!q) { results.innerHTML = ''; return; }
+
+    const matches = books.filter(b => (b.full_text || '').includes(q));
+    if (matches.length === 0) {
+      results.innerHTML = `<p style="color:#666">「${escHtml(q)}」に一致する原文が見つかりません</p>`;
+      return;
+    }
+
+    results.innerHTML = matches.map(b => {
+      const idx = b.full_text.indexOf(q);
+      const excerpt = b.full_text.slice(Math.max(0, idx - 80), idx + q.length + 80);
+      const highlighted = escHtml(excerpt).replace(escHtml(q), `<mark class="highlight">${escHtml(q)}</mark>`);
+      return `
+        <div class="card" style="margin-bottom:12px">
+          <h3 style="color:#e2b96f;margin-bottom:6px">${escHtml(b.title)}</h3>
+          <p style="font-size:13px;line-height:1.8">...${highlighted}...</p>
+        </div>`;
+    }).join('');
+  }
+
+  // ---- Helpers ----
+  function showStatus(id, msg, type) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = 'status ' + type;
+    el.textContent = msg;
+    if (!msg) el.className = '';
+  }
+
+  function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ---- Camera / OCR ----
+  let cameraStream = null;
+  let capturedDataUrl = null;
+
+  async function openCamera() {
+    document.getElementById('cameraModal').classList.add('open');
+    resetCameraUI();
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+      });
+      document.getElementById('cameraVideo').srcObject = cameraStream;
+    } catch (e) {
+      showStatus('cameraStatus', '❌ カメラにアクセスできません: ' + e.message, 'error');
+      document.getElementById('captureBtn').disabled = true;
+    }
+  }
+
+  function closeCamera() {
+    stopCamera();
+    document.getElementById('cameraModal').classList.remove('open');
+  }
+
+  function stopCamera() {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(t => t.stop());
+      cameraStream = null;
+    }
+  }
+
+  function resetCameraUI() {
+    capturedDataUrl = null;
+    const video = document.getElementById('cameraVideo');
+    const preview = document.getElementById('capturedPreview');
+    video.style.display = 'block';
+    preview.style.display = 'none';
+    document.getElementById('ocrResult').style.display = 'none';
+    document.getElementById('captureBtn').style.display = '';
+    document.getElementById('captureBtn').disabled = false;
+    document.getElementById('retakeBtn').style.display = 'none';
+    document.getElementById('ocrBtn').style.display = 'none';
+    document.getElementById('appendBtn').style.display = 'none';
+    showStatus('cameraStatus', '', '');
+  }
+
+  function capture() {
+    const video = document.getElementById('cameraVideo');
+    const canvas = document.getElementById('cameraCanvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    capturedDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+
+    const preview = document.getElementById('capturedPreview');
+    preview.src = capturedDataUrl;
+    preview.style.display = 'block';
+    video.style.display = 'none';
+
+    stopCamera();
+
+    document.getElementById('captureBtn').style.display = 'none';
+    document.getElementById('retakeBtn').style.display = '';
+    document.getElementById('ocrBtn').style.display = '';
+    showStatus('cameraStatus', '📸 撮影しました。OCRを実行してください。', 'info');
+  }
+
+  async function retake() {
+    resetCameraUI();
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+      });
+      document.getElementById('cameraVideo').srcObject = cameraStream;
+    } catch (e) {
+      showStatus('cameraStatus', '❌ カメラにアクセスできません: ' + e.message, 'error');
+    }
+  }
+
+  async function runOCR() {
+    const apiKey = getApiKey();
+    if (!apiKey) { showStatus('cameraStatus', 'APIキーを設定してください', 'error'); return; }
+    if (!capturedDataUrl) return;
+
+    const btn = document.getElementById('ocrBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ 解析中...';
+    showStatus('cameraStatus', '⏳ Geminiでテキストを読み取っています...', 'info');
+
+    const base64 = capturedDataUrl.split(',')[1];
+
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite-preview-06-17:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: 'この画像に写っているテキストをすべて正確に読み取ってください。レイアウトや段落を保持して出力してください。テキスト以外の説明は不要です。' },
+                { inline_data: { mime_type: 'image/jpeg', data: base64 } }
+              ]
+            }]
+          })
+        }
+      );
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message || res.statusText);
+      }
+
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+      const resultBox = document.getElementById('ocrResult');
+      resultBox.textContent = text;
+      resultBox.style.display = 'block';
+      document.getElementById('appendBtn').style.display = '';
+      showStatus('cameraStatus', '✅ OCR完了', 'success');
+    } catch (e) {
+      showStatus('cameraStatus', '❌ エラー: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🔍 OCR実行';
+    }
+  }
+
+  function appendToText() {
+    const ocr = document.getElementById('ocrResult').textContent;
+    const current = document.getElementById('addText').value;
+    document.getElementById('addText').value = current ? current + '\n\n' + ocr : ocr;
+    closeCamera();
+    showStatus('addStatus', '✅ OCRテキストを追加しました', 'success');
+    setTimeout(() => showStatus('addStatus', '', ''), 3000);
+  }
+</script>
+</body>
+</html>
