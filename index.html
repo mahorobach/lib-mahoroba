@@ -775,7 +775,7 @@ ${text.slice(0, 8000)}`;
           { text: 'この画像に写っているテキストをすべて正確に読み取ってください。レイアウトや段落を保持して出力してください。テキスト以外の説明は不要です。' },
           { inline_data: { mime_type: 'image/jpeg', data: base64 } }
         ]
-      }], 'gemini-2.5-flash');
+      }], 'gemini-3.1-flash-lite');
 
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
