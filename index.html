@@ -261,8 +261,11 @@
 
     /* ISBNモード：html5-qrcodeに高さを任せる */
     #isbn-reader { width: 100%; }
-    #isbn-reader video { width: 100% !important; height: auto !important; }
+    #isbn-reader video { width: 100% !important; height: auto !important; object-fit: cover !important; }
     #isbn-reader canvas { width: 100% !important; }
+    /* html5-qrcodeが生成するコンテナの余白を除去 */
+    #isbn-reader > div { margin: 0 !important; padding: 0 !important; }
+    #qr-shaded-region { border-width: 0 !important; }
     .cam-scan-line {
       position: absolute;
       left: 10%; right: 10%;
@@ -830,20 +833,29 @@ ${text.slice(0, 8000)}`;
   // ---- ISBNスキャン（html5-qrcode） ----
   async function startIsbnScanner() {
     setCamStatus('バーコード（ISBN）をカメラに向けてください', '');
-    // 前回の残骸をクリア
     document.getElementById('isbn-reader').innerHTML = '';
     html5QrScanner = new Html5Qrcode('isbn-reader');
+
+    // 画面幅の75%をスキャン枠幅にする（はみ出し防止）
+    const boxW = Math.floor(Math.min(window.innerWidth * 0.75, 300));
+    const boxH = Math.floor(boxW * 0.35);
+
     try {
       await html5QrScanner.start(
         { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 280, height: 100 }, supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA] },
+        {
+          fps: 10,
+          qrbox: { width: boxW, height: boxH },
+          supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
+          aspectRatio: 1.5
+        },
         async (decodedText) => {
           await html5QrScanner.stop();
           html5QrScanner = null;
           setCamStatus('📦 ISBN: ' + decodedText + ' — 検索中...', 'info');
           await fetchBookByISBN(decodedText);
         },
-        () => {} // エラーは無視
+        () => {}
       );
     } catch (e) {
       setCamStatus('❌ カメラ起動エラー: ' + e.message, 'error');
