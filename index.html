@@ -246,16 +246,23 @@
     .cam-mode-tab.active { background: #e2b96f; color: #1a1a2e; border-color: #e2b96f; font-weight: bold; }
     .cam-viewfinder {
       flex: 0 0 auto;
-      height: calc(100vh - 180px); /* ヘッダー＋フッター分を確保 */
-      max-height: 55vh;            /* 画面の半分以上は使わない */
       background: #000;
       position: relative;
+    }
+    /* OCRモード：高さ固定 */
+    .cam-viewfinder.ocr-mode {
+      height: calc(100vh - 200px);
+      max-height: 55vh;
       overflow: hidden;
     }
     #cameraVideo { width: 100%; height: 100%; object-fit: cover; display: block; }
     #cameraCanvas { display: none; }
     #capturedPreview { width: 100%; height: 100%; object-fit: contain; display: none; }
-    #isbn-reader { width: 100%; height: 100%; }
+
+    /* ISBNモード：html5-qrcodeに高さを任せる */
+    #isbn-reader { width: 100%; }
+    #isbn-reader video { width: 100% !important; height: auto !important; }
+    #isbn-reader canvas { width: 100% !important; }
     .cam-scan-line {
       position: absolute;
       left: 10%; right: 10%;
@@ -807,6 +814,8 @@ ${text.slice(0, 8000)}`;
 
   function resetCameraUI() {
     capturedDataUrl = null;
+    const vf = document.querySelector('.cam-viewfinder');
+    vf.classList.toggle('ocr-mode', camMode === 'ocr');
     document.getElementById('isbn-reader').style.display = camMode === 'barcode' ? 'block' : 'none';
     document.getElementById('cameraVideo').style.display = 'none';
     document.getElementById('capturedPreview').style.display = 'none';
