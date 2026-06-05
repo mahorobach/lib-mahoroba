@@ -189,10 +189,12 @@
       display: none;
       position: fixed;
       inset: 0;
-      background: #000a;
+      background: #000c;
       z-index: 100;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
+      overflow-y: auto;
+      padding: 16px;
     }
 
     .modal-overlay.open { display: flex; }
@@ -201,21 +203,28 @@
       background: #16213e;
       border: 1px solid #0f3460;
       border-radius: 10px;
-      padding: 24px;
-      width: min(500px, 90vw);
-      max-height: 80vh;
-      overflow-y: auto;
+      padding: 20px;
+      width: 100%;
+      max-width: 500px;
+      margin: auto;
     }
 
-    .modal h2 { color: #e2b96f; margin-bottom: 16px; }
+    .modal h2 { color: #e2b96f; margin-bottom: 16px; font-size: 16px; }
     .modal .btn-row { justify-content: flex-end; }
 
     /* Camera */
-    #cameraModal .modal { width: min(680px, 95vw); }
+    #cameraModal .modal { max-width: 680px; }
     #cameraVideo { width: 100%; border-radius: 6px; background: #000; display: block; }
     #cameraCanvas { display: none; }
     #capturedPreview { width: 100%; border-radius: 6px; display: none; margin-top: 8px; }
-    .ocr-result { background: #0f3460; border: 1px solid #1a4a7a; border-radius: 6px; padding: 12px; font-size: 13px; line-height: 1.8; white-space: pre-wrap; max-height: 200px; overflow-y: auto; margin-top: 8px; }
+    .ocr-result { background: #0f3460; border: 1px solid #1a4a7a; border-radius: 6px; padding: 12px; font-size: 13px; line-height: 1.8; white-space: pre-wrap; max-height: 180px; overflow-y: auto; margin-top: 8px; }
+
+    /* モバイル対応 */
+    @media (max-width: 600px) {
+      .modal { padding: 16px; }
+      .btn-row { flex-wrap: wrap; gap: 8px; }
+      .btn-row button { flex: 1 1 auto; min-width: 80px; padding: 12px 10px; font-size: 14px; }
+    }
   </style>
 </head>
 <body>
@@ -398,17 +407,19 @@
   let deleteTargetId = null;
 
   // ---- Gemini API (server proxy) ----
-  async function callGemini(contents) {
+  async function callGemini(contents, model) {
+    const body = { contents };
+    if (model) body.model = model;
     const res = await fetch('/api/gemini', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents }),
+      body: JSON.stringify(body),
     });
+    const data = await res.json();
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error?.message || res.statusText);
+      throw new Error(data.error?.message || `HTTP ${res.status}: ${res.statusText}`);
     }
-    return res.json();
+    return data;
   }
 
   window.addEventListener('load', () => {
@@ -764,7 +775,7 @@ ${text.slice(0, 8000)}`;
           { text: 'この画像に写っているテキストをすべて正確に読み取ってください。レイアウトや段落を保持して出力してください。テキスト以外の説明は不要です。' },
           { inline_data: { mime_type: 'image/jpeg', data: base64 } }
         ]
-      }]);
+      }], 'gemini-2.5-flash');
 
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
