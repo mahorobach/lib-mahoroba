@@ -349,6 +349,14 @@
       <h3 id="playerTitle" style="color:#e2b96f;margin-bottom:8px"></h3>
       <p id="playerAuthor" style="font-size:12px;color:#888;margin-bottom:12px"></p>
 
+      <!-- 要約未生成の警告 -->
+      <div id="playerSummaryWarn" style="display:none;margin-bottom:12px">
+        <div class="status info" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <span>⚠️ 要約が未生成です。原文を直接再生します。</span>
+          <button class="btn-primary" style="white-space:nowrap;padding:6px 12px;font-size:13px" onclick="generateSummaryFromPlayer()">✨ 今すぐ生成</button>
+        </div>
+      </div>
+
       <div style="margin-bottom:8px">
         <label>要約（短）</label>
         <div id="summaryShort" class="summary-box"></div>
@@ -592,9 +600,17 @@
     renderLibrary();
 
     document.getElementById('playerTitle').textContent = b.title;
-    document.getElementById('playerAuthor').textContent = [b.author, b.category, b.source].filter(Boolean).join(' ・ ');
-    document.getElementById('summaryShort').textContent = b.summary_short || '（要約なし）';
-    document.getElementById('summaryFull').textContent = b.summary_full || '（詳細要約なし）';
+    document.getElementById('playerAuthor').textContent = [b.author, b.category].filter(Boolean).join(' ・ ');
+
+    const noSummary = !b.summary_short && !b.summary_full;
+    document.getElementById('summaryShort').textContent =
+      b.summary_short || (b.full_text ? '（要約未生成 — 原文を再生します）' : '（要約なし）');
+    document.getElementById('summaryFull').textContent =
+      b.summary_full || (b.full_text ? b.full_text.slice(0, 500) + '…' : '（詳細要約なし）');
+
+    // 要約がなければ警告と生成ボタンを表示
+    const warn = document.getElementById('playerSummaryWarn');
+    if (warn) warn.style.display = noSummary && b.full_text ? 'block' : 'none';
     document.getElementById('playerPanel').style.display = 'block';
 
     stopSpeech();
@@ -632,7 +648,10 @@
     if (!b) return;
 
     const mode = document.getElementById('modeSelect').value;
-    const text = mode === 'short' ? (b.summary_short || b.summary_full) : (b.summary_full || b.summary_short);
+    // summary がなければ full_text にフォールバック
+    const text = mode === 'short'
+      ? (b.summary_short || b.summary_full || b.full_text)
+      : (b.summary_full || b.summary_short || b.full_text);
     if (!text) { alert('再生するテキストがありません'); return; }
 
     utterance = new SpeechSynthesisUtterance(text);
@@ -694,6 +713,51 @@
 
   function persistBooks() {
     localStorage.setItem('mahoroba_books', JSON.stringify(books));
+  }
+
+  // ---- プレイヤーから直接要約生成 ----
+  async function generateSummaryFromPlayer() {
+    const b = books.find(x => x.id === selectedBookId);
+    if (!b || !b.full_text) return;
+
+    const warn = document.getElementById('playerSummaryWarn');
+    const btn = warn.querySelector('button');
+    btn.disabled = true;
+    btn.textContent = '⏳ 生成中...';
+
+    const prompt = `以下は「${b.title}」のテキストです。
+
+【指示】
+1. 3行以内の短い要約（summary_short）を作成してください
+2. 章ごとの詳細な要約（summary_full）を作成してください
+
+【出力形式】
+---SHORT---
+（3行以内の要約）
+---FULL---
+（詳細要約）
+
+【テキスト】
+${b.full_text.slice(0, 8000)}`;
+
+    try {
+      const data = await callGemini([{ parts: [{ text: prompt }] }]);
+      const output = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const shortMatch = output.match(/---SHORT---\s*([\s\S]*?)(?:---FULL---|$)/);
+      const fullMatch = output.match(/---FULL---\s*([\s\S]*?)$/);
+
+      if (shortMatch) b.summary_short = shortMatch[1].trim();
+      if (fullMatch) b.summary_full = fullMatch[1].trim();
+      persistBooks();
+
+      // 表示を更新
+      document.getElementById('summaryShort').textContent = b.summary_short;
+      document.getElementById('summaryFull').textContent = b.summary_full;
+      warn.style.display = 'none';
+    } catch (e) {
+      btn.textContent = '❌ エラー';
+      setTimeout(() => { btn.disabled = false; btn.textContent = '✨ 今すぐ生成'; }, 2000);
+    }
   }
 
   // ---- Gemini Summary ----
