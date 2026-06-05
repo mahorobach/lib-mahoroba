@@ -346,41 +346,69 @@
 
     <!-- 再生パネル -->
     <div id="playerPanel" style="display:none" class="card">
-      <h3 id="playerTitle" style="color:#e2b96f;margin-bottom:8px"></h3>
+      <h3 id="playerTitle" style="color:#e2b96f;margin-bottom:4px"></h3>
       <p id="playerAuthor" style="font-size:12px;color:#888;margin-bottom:12px"></p>
 
-      <!-- 要約未生成の警告 -->
-      <div id="playerSummaryWarn" style="display:none;margin-bottom:12px">
-        <div class="status info" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-          <span>⚠️ 要約が未生成です。原文を直接再生します。</span>
-          <button class="btn-primary" style="white-space:nowrap;padding:6px 12px;font-size:13px" onclick="generateSummaryFromPlayer()">✨ 今すぐ生成</button>
+      <!-- 再生モードタブ -->
+      <div style="display:flex;gap:4px;margin-bottom:12px;border-bottom:1px solid #0f3460">
+        <button class="tab active" id="tabFullText" onclick="switchPlayerTab('fulltext')" style="font-size:13px;padding:8px 16px">📄 全文</button>
+        <button class="tab" id="tabSummary" onclick="switchPlayerTab('summary')" style="font-size:13px;padding:8px 16px">📝 要約</button>
+      </div>
+
+      <!-- 全文パネル -->
+      <div id="playerFullText">
+        <div id="fullTextBox" class="summary-box" style="max-height:180px;overflow-y:auto;font-size:13px;line-height:1.8;white-space:pre-wrap"></div>
+        <div class="player" style="margin-top:10px">
+          <div class="player-controls">
+            <button class="btn-primary btn-icon" id="playBtnFull" onclick="togglePlay('full_text')">▶</button>
+            <button class="btn-secondary btn-icon" onclick="stopSpeech()">⏹</button>
+            <span class="speed-label">速度</span>
+            <input type="range" id="speedRange" min="0.5" max="2" step="0.1" value="1" oninput="updateSpeed()">
+            <span id="speedVal">1.0x</span>
+          </div>
+        </div>
+        <!-- 続きOCR追加 -->
+        <div class="btn-row" style="margin-top:10px">
+          <button class="btn-secondary mobile-only" onclick="appendOcrToBook()">📷 続きをOCR追加</button>
+          <button class="btn-secondary pc-only" onclick="document.getElementById('appendFileInput').click()">🖼 ファイルで追加</button>
+          <input type="file" id="appendFileInput" accept="image/*,.pdf" style="display:none" onchange="handleAppendFile(event)">
+        </div>
+        <div id="appendStatus"></div>
+      </div>
+
+      <!-- 要約パネル -->
+      <div id="playerSummary" style="display:none">
+        <div style="margin-bottom:8px">
+          <label>要約（短）</label>
+          <div id="summaryShort" class="summary-box"></div>
+        </div>
+        <div style="margin-bottom:10px">
+          <label>要約（詳細）</label>
+          <div id="summaryFull" class="summary-box" style="max-height:180px;overflow-y:auto"></div>
+        </div>
+
+        <!-- 要約未生成 -->
+        <div id="playerSummaryWarn" style="display:none;margin-bottom:10px">
+          <div class="status info" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+            <span style="font-size:13px">⚠️ まだ要約が生成されていません</span>
+            <button class="btn-primary" style="white-space:nowrap;padding:8px 14px;font-size:13px" onclick="generateSummaryFromPlayer()">✨ 要約を生成</button>
+          </div>
+        </div>
+
+        <div class="player" id="summaryPlayer" style="display:none">
+          <div class="player-controls">
+            <button class="btn-primary btn-icon" id="playBtn" onclick="togglePlay('summary')">▶</button>
+            <button class="btn-secondary btn-icon" onclick="stopSpeech()">⏹</button>
+            <span class="speed-label">速度</span>
+            <select id="modeSelect" style="width:auto">
+              <option value="short">要約（短）</option>
+              <option value="full">要約（詳細）</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      <div style="margin-bottom:8px">
-        <label>要約（短）</label>
-        <div id="summaryShort" class="summary-box"></div>
-      </div>
-      <div>
-        <label>要約（詳細）</label>
-        <div id="summaryFull" class="summary-box" style="max-height:200px;overflow-y:auto"></div>
-      </div>
-
-      <div class="player">
-        <div class="player-controls">
-          <button class="btn-primary btn-icon" id="playBtn" onclick="togglePlay()">▶</button>
-          <button class="btn-secondary btn-icon" onclick="stopSpeech()">⏹</button>
-          <span class="speed-label">速度</span>
-          <input type="range" id="speedRange" min="0.5" max="2" step="0.1" value="1" oninput="updateSpeed()">
-          <span id="speedVal">1.0x</span>
-          <select id="modeSelect" style="width:auto">
-            <option value="short">要約（短）</option>
-            <option value="full">要約（詳細）</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="btn-row">
+      <div class="btn-row" style="margin-top:12px">
         <button class="btn-secondary" onclick="closePlayer()">閉じる</button>
         <button class="btn-danger" onclick="deleteBook()">削除</button>
       </div>
@@ -596,24 +624,32 @@
     selectedBookId = id;
     const b = books.find(x => x.id === id);
     if (!b) return;
-
     renderLibrary();
-
+    stopSpeech();
     document.getElementById('playerTitle').textContent = b.title;
     document.getElementById('playerAuthor').textContent = [b.author, b.category].filter(Boolean).join(' ・ ');
-
-    const noSummary = !b.summary_short && !b.summary_full;
-    document.getElementById('summaryShort').textContent =
-      b.summary_short || (b.full_text ? '（要約未生成 — 原文を再生します）' : '（要約なし）');
-    document.getElementById('summaryFull').textContent =
-      b.summary_full || (b.full_text ? b.full_text.slice(0, 500) + '…' : '（詳細要約なし）');
-
-    // 要約がなければ警告と生成ボタンを表示
-    const warn = document.getElementById('playerSummaryWarn');
-    if (warn) warn.style.display = noSummary && b.full_text ? 'block' : 'none';
+    switchPlayerTab('fulltext');
     document.getElementById('playerPanel').style.display = 'block';
+  }
 
+  function switchPlayerTab(tab) {
+    const b = books.find(x => x.id === selectedBookId);
     stopSpeech();
+    document.getElementById('tabFullText').classList.toggle('active', tab === 'fulltext');
+    document.getElementById('tabSummary').classList.toggle('active', tab === 'summary');
+    document.getElementById('playerFullText').style.display = tab === 'fulltext' ? 'block' : 'none';
+    document.getElementById('playerSummary').style.display = tab === 'summary' ? 'block' : 'none';
+
+    if (tab === 'fulltext' && b) {
+      document.getElementById('fullTextBox').textContent = b.full_text || '（本文が保存されていません）';
+    }
+    if (tab === 'summary' && b) {
+      const hasSummary = !!(b.summary_short || b.summary_full);
+      document.getElementById('summaryShort').textContent = b.summary_short || '（未生成）';
+      document.getElementById('summaryFull').textContent = b.summary_full || '（未生成）';
+      document.getElementById('playerSummaryWarn').style.display = hasSummary ? 'none' : 'block';
+      document.getElementById('summaryPlayer').style.display = hasSummary ? 'block' : 'none';
+    }
   }
 
   function closePlayer() {
@@ -629,50 +665,58 @@
   }
 
   // ---- Speech ----
-  function togglePlay() {
+  function togglePlay(target) {
+    const btnId = target === 'full_text' ? 'playBtnFull' : 'playBtn';
+    const btn = document.getElementById(btnId);
+
     if (speaking) {
       window.speechSynthesis.pause();
       speaking = false;
-      document.getElementById('playBtn').textContent = '▶';
+      if (btn) btn.textContent = '▶';
       return;
     }
 
     if (window.speechSynthesis.paused) {
       window.speechSynthesis.resume();
       speaking = true;
-      document.getElementById('playBtn').textContent = '⏸';
+      if (btn) btn.textContent = '⏸';
       return;
     }
 
     const b = books.find(x => x.id === selectedBookId);
     if (!b) return;
 
-    const mode = document.getElementById('modeSelect').value;
-    // summary がなければ full_text にフォールバック
-    const text = mode === 'short'
-      ? (b.summary_short || b.summary_full || b.full_text)
-      : (b.summary_full || b.summary_short || b.full_text);
+    let text;
+    if (target === 'full_text') {
+      text = b.full_text;
+    } else {
+      const mode = document.getElementById('modeSelect').value;
+      text = mode === 'short'
+        ? (b.summary_short || b.summary_full)
+        : (b.summary_full || b.summary_short);
+    }
     if (!text) { alert('再生するテキストがありません'); return; }
 
     utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'ja-JP';
     utterance.rate = parseFloat(document.getElementById('speedRange').value);
-
     utterance.onend = () => {
       speaking = false;
-      document.getElementById('playBtn').textContent = '▶';
+      if (btn) btn.textContent = '▶';
     };
 
     window.speechSynthesis.speak(utterance);
     speaking = true;
-    document.getElementById('playBtn').textContent = '⏸';
+    if (btn) btn.textContent = '⏸';
   }
 
   function stopSpeech() {
     window.speechSynthesis.cancel();
     speaking = false;
-    const btn = document.getElementById('playBtn');
-    if (btn) btn.textContent = '▶';
+    ['playBtn','playBtnFull'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = '▶';
+    });
   }
 
   function updateSpeed() {
@@ -713,6 +757,52 @@
 
   function persistBooks() {
     localStorage.setItem('mahoroba_books', JSON.stringify(books));
+  }
+
+  // ---- 続きOCR追加 ----
+  async function appendOcrToBook() {
+    await openOcrCamera();
+    // OCR完了後はappendToText()ではなくappendToBookText()を呼ぶ
+    window._ocrAppendMode = 'book';
+  }
+
+  function appendToBookText(text) {
+    const b = books.find(x => x.id === selectedBookId);
+    if (!b) return;
+    b.full_text = b.full_text ? b.full_text + '\n\n' + text : text;
+    persistBooks();
+    document.getElementById('fullTextBox').textContent = b.full_text;
+    showStatus('appendStatus', '✅ テキストを追加しました', 'success');
+    setTimeout(() => showStatus('appendStatus', '', ''), 3000);
+  }
+
+  async function handleAppendFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    showStatus('appendStatus', '⏳ ファイルを処理中...', 'info');
+    const base64 = await fileToBase64(file);
+    try {
+      const data = await callGemini([{
+        parts: [
+          { text: 'この画像に写っているテキストをすべて正確に読み取ってください。レイアウトや段落を保持して出力してください。テキスト以外の説明は不要です。' },
+          { inline_data: { mime_type: file.type, data: base64 } }
+        ]
+      }], 'gemini-3.1-flash-lite');
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      appendToBookText(text);
+    } catch(err) {
+      showStatus('appendStatus', '❌ ' + err.message, 'error');
+    }
+    e.target.value = '';
+  }
+
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = e => resolve(e.target.result.split(',')[1]);
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
   }
 
   // ---- プレイヤーから直接要約生成 ----
@@ -1070,11 +1160,16 @@ ${text.slice(0, 8000)}`;
 
   function appendToText() {
     const ocr = document.getElementById('ocrResult').textContent;
-    const current = document.getElementById('addText').value;
-    document.getElementById('addText').value = current ? current + '\n\n' + ocr : ocr;
     closeCamera();
-    showStatus('addStatus', '✅ OCRテキストを追加しました', 'success');
-    setTimeout(() => showStatus('addStatus', '', ''), 3000);
+    if (window._ocrAppendMode === 'book') {
+      window._ocrAppendMode = null;
+      appendToBookText(ocr);
+    } else {
+      const current = document.getElementById('addText').value;
+      document.getElementById('addText').value = current ? current + '\n\n' + ocr : ocr;
+      showStatus('addStatus', '✅ OCRテキストを追加しました', 'success');
+      setTimeout(() => showStatus('addStatus', '', ''), 3000);
+    }
   }
 
   function setCamStatus(msg, type) {
