@@ -229,15 +229,6 @@
 
 <div class="container">
 
-  <!-- API Key設定 -->
-  <div class="card" id="apiKeyCard">
-    <label>Gemini API Key</label>
-    <div style="display:flex;gap:8px">
-      <input type="password" id="apiKeyInput" placeholder="AIza...">
-      <button class="btn-primary" onclick="saveApiKey()">保存</button>
-    </div>
-    <div id="apiKeyStatus"></div>
-  </div>
 
   <div class="tabs">
     <button class="tab active" onclick="switchTab('library')">📖 ライブラリ</button>
@@ -406,27 +397,21 @@
   let utterance = null;
   let deleteTargetId = null;
 
-  // ---- API Key ----
-  function saveApiKey() {
-    const key = document.getElementById('apiKeyInput').value.trim();
-    if (!key) return;
-    localStorage.setItem('gemini_api_key', key);
-    document.getElementById('apiKeyInput').value = '';
-    showStatus('apiKeyStatus', '✅ 保存しました', 'success');
-    setTimeout(() => showStatus('apiKeyStatus', '', ''), 2000);
-  }
-
-  function getApiKey() {
-    return localStorage.getItem('gemini_api_key') || '';
-  }
-
-  // On load, show masked key if exists
-  window.addEventListener('load', () => {
-    const key = getApiKey();
-    if (key) {
-      document.getElementById('apiKeyCard').querySelector('p') ||
-        (document.getElementById('apiKeyCard').innerHTML += `<p style="font-size:12px;color:#4a8;margin-top:6px">✅ APIキー設定済み</p>`);
+  // ---- Gemini API (server proxy) ----
+  async function callGemini(contents) {
+    const res = await fetch('/api/gemini', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error?.message || res.statusText);
     }
+    return res.json();
+  }
+
+  window.addEventListener('load', () => {
     renderLibrary();
   });
 
@@ -583,9 +568,6 @@
 
   // ---- Gemini Summary ----
   async function generateSummary() {
-    const apiKey = getApiKey();
-    if (!apiKey) { showStatus('addStatus', 'APIキーを設定してください', 'error'); return; }
-
     const text = document.getElementById('addText').value.trim();
     const title = document.getElementById('addTitle').value.trim();
     if (!text) { showStatus('addStatus', 'テキストを入力してください', 'error'); return; }
@@ -611,23 +593,7 @@
 ${text.slice(0, 8000)}`;
 
     try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite-preview-06-17:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }]
-          })
-        }
-      );
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error?.message || res.statusText);
-      }
-
-      const data = await res.json();
+      const data = await callGemini([{ parts: [{ text: prompt }] }]);
       const output = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
       const shortMatch = output.match(/---SHORT---\s*([\s\S]*?)(?:---FULL---|$)/);
@@ -783,8 +749,6 @@ ${text.slice(0, 8000)}`;
   }
 
   async function runOCR() {
-    const apiKey = getApiKey();
-    if (!apiKey) { showStatus('cameraStatus', 'APIキーを設定してください', 'error'); return; }
     if (!capturedDataUrl) return;
 
     const btn = document.getElementById('ocrBtn');
@@ -795,28 +759,13 @@ ${text.slice(0, 8000)}`;
     const base64 = capturedDataUrl.split(',')[1];
 
     try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite-preview-06-17:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                { text: 'この画像に写っているテキストをすべて正確に読み取ってください。レイアウトや段落を保持して出力してください。テキスト以外の説明は不要です。' },
-                { inline_data: { mime_type: 'image/jpeg', data: base64 } }
-              ]
-            }]
-          })
-        }
-      );
+      const data = await callGemini([{
+        parts: [
+          { text: 'この画像に写っているテキストをすべて正確に読み取ってください。レイアウトや段落を保持して出力してください。テキスト以外の説明は不要です。' },
+          { inline_data: { mime_type: 'image/jpeg', data: base64 } }
+        ]
+      }]);
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error?.message || res.statusText);
-      }
-
-      const data = await res.json();
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
       const resultBox = document.getElementById('ocrResult');
