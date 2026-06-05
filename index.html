@@ -212,14 +212,70 @@
     .modal h2 { color: #e2b96f; margin-bottom: 16px; font-size: 16px; }
     .modal .btn-row { justify-content: flex-end; }
 
-    /* Camera */
-    #cameraModal .modal { max-width: 680px; }
-    #cameraVideo { width: 100%; border-radius: 6px; background: #000; display: block; }
+    /* Camera Modal — フルスクリーン固定レイアウト */
+    #cameraModal {
+      padding: 0;
+      align-items: stretch;
+      justify-content: stretch;
+    }
+    #cameraModal .modal {
+      max-width: 100%;
+      width: 100%;
+      height: 100%;
+      border-radius: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      overflow: hidden;
+    }
+    .cam-header {
+      padding: 14px 16px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #0f3460;
+      flex-shrink: 0;
+    }
+    .cam-header h2 { color: #e2b96f; font-size: 15px; margin: 0; }
+    .cam-mode-tabs { display: flex; gap: 6px; }
+    .cam-mode-tab {
+      padding: 6px 14px; border-radius: 20px; border: 1px solid #0f3460;
+      background: none; color: #888; cursor: pointer; font-size: 13px;
+    }
+    .cam-mode-tab.active { background: #e2b96f; color: #1a1a2e; border-color: #e2b96f; font-weight: bold; }
+    .cam-viewfinder {
+      flex: 1;
+      background: #000;
+      position: relative;
+      overflow: hidden;
+      min-height: 0;
+    }
+    #cameraVideo { width: 100%; height: 100%; object-fit: cover; display: block; }
     #cameraCanvas { display: none; }
-    #capturedPreview { width: 100%; border-radius: 6px; display: none; margin-top: 8px; }
-    .ocr-result { background: #0f3460; border: 1px solid #1a4a7a; border-radius: 6px; padding: 12px; font-size: 13px; line-height: 1.8; white-space: pre-wrap; max-height: 180px; overflow-y: auto; margin-top: 8px; }
+    #capturedPreview { width: 100%; height: 100%; object-fit: contain; display: none; }
+    .cam-scan-line {
+      position: absolute;
+      left: 10%; right: 10%;
+      top: 50%; transform: translateY(-50%);
+      border: 2px solid #e2b96f88;
+      border-radius: 4px;
+      height: 80px;
+      pointer-events: none;
+    }
+    .cam-footer {
+      flex-shrink: 0;
+      padding: 12px 16px;
+      border-top: 1px solid #0f3460;
+    }
+    .cam-status { font-size: 13px; color: #aaa; min-height: 20px; margin-bottom: 10px; text-align: center; }
+    .cam-status.error { color: #cc8888; }
+    .cam-status.success { color: #88cc88; }
+    .cam-status.info { color: #88aacc; }
+    .ocr-result { background: #0f3460; border: 1px solid #1a4a7a; border-radius: 6px; padding: 10px; font-size: 13px; line-height: 1.7; white-space: pre-wrap; max-height: 100px; overflow-y: auto; margin-bottom: 10px; }
+    .cam-btn-row { display: flex; gap: 8px; }
+    .cam-btn-row button { flex: 1; padding: 13px 8px; font-size: 14px; font-weight: bold; }
 
-    /* モバイル対応 */
+    /* モバイル対応（モーダル以外） */
     @media (max-width: 600px) {
       .modal { padding: 16px; }
       .btn-row { flex-wrap: wrap; gap: 8px; }
@@ -370,18 +426,32 @@
 <!-- カメラモーダル -->
 <div class="modal-overlay" id="cameraModal">
   <div class="modal">
-    <h2>📷 カメラ撮影 → OCR</h2>
-    <video id="cameraVideo" autoplay playsinline></video>
-    <canvas id="cameraCanvas"></canvas>
-    <img id="capturedPreview" alt="撮影画像">
-    <div id="ocrResult" class="ocr-result" style="display:none"></div>
-    <div id="cameraStatus"></div>
-    <div class="btn-row" style="margin-top:12px">
-      <button class="btn-secondary" onclick="closeCamera()">閉じる</button>
-      <button class="btn-secondary" id="retakeBtn" onclick="retake()" style="display:none">撮り直し</button>
-      <button class="btn-primary" id="captureBtn" onclick="capture()">📸 撮影</button>
-      <button class="btn-primary" id="ocrBtn" onclick="runOCR()" style="display:none">🔍 OCR実行</button>
-      <button class="btn-primary" id="appendBtn" onclick="appendToText()" style="display:none">✅ テキストに追加</button>
+    <!-- ヘッダー -->
+    <div class="cam-header">
+      <h2 id="camTitle">📷 カメラ</h2>
+      <div class="cam-mode-tabs">
+        <button class="cam-mode-tab active" id="modeBarcode" onclick="setCamMode('barcode')">📦 ISBN</button>
+        <button class="cam-mode-tab" id="modeOcr" onclick="setCamMode('ocr')">📄 OCR</button>
+      </div>
+    </div>
+    <!-- ビューファインダー -->
+    <div class="cam-viewfinder">
+      <video id="cameraVideo" autoplay playsinline muted></video>
+      <canvas id="cameraCanvas"></canvas>
+      <img id="capturedPreview" alt="撮影画像">
+      <div class="cam-scan-line" id="scanLine"></div>
+    </div>
+    <!-- フッター（常に画面内） -->
+    <div class="cam-footer">
+      <div class="cam-status" id="cameraStatus">バーコード（ISBN）をスキャン枠に合わせてください</div>
+      <div id="ocrResult" class="ocr-result" style="display:none"></div>
+      <div class="cam-btn-row">
+        <button class="btn-secondary" onclick="closeCamera()">✕ 閉じる</button>
+        <button class="btn-secondary" id="retakeBtn" onclick="retake()" style="display:none">↩ 撮り直し</button>
+        <button class="btn-primary" id="captureBtn" onclick="capture()">📸 撮影</button>
+        <button class="btn-primary" id="ocrBtn" onclick="runOCR()" style="display:none">🔍 OCR</button>
+        <button class="btn-primary" id="appendBtn" onclick="appendToText()" style="display:none">✅ 追加</button>
+      </div>
     </div>
   </div>
 </div>
@@ -681,51 +751,141 @@ ${text.slice(0, 8000)}`;
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  // ---- Camera / OCR ----
+  // ---- Camera ----
   let cameraStream = null;
   let capturedDataUrl = null;
+  let camMode = 'barcode'; // 'barcode' | 'ocr'
+  let barcodeDetector = null;
+  let barcodeTimer = null;
+
+  function setCamMode(mode) {
+    camMode = mode;
+    document.getElementById('modeBarcode').classList.toggle('active', mode === 'barcode');
+    document.getElementById('modeOcr').classList.toggle('active', mode === 'ocr');
+    document.getElementById('scanLine').style.display = mode === 'barcode' ? 'block' : 'none';
+    resetCameraUI();
+  }
 
   async function openCamera() {
     document.getElementById('cameraModal').classList.add('open');
+    camMode = 'barcode';
+    document.getElementById('modeBarcode').classList.add('active');
+    document.getElementById('modeOcr').classList.remove('active');
     resetCameraUI();
+    await startStream();
+  }
+
+  async function startStream() {
     try {
       cameraStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
       });
-      document.getElementById('cameraVideo').srcObject = cameraStream;
+      const video = document.getElementById('cameraVideo');
+      video.srcObject = cameraStream;
+      if (camMode === 'barcode') startBarcodeLoop();
     } catch (e) {
-      showStatus('cameraStatus', '❌ カメラにアクセスできません: ' + e.message, 'error');
+      setCamStatus('❌ カメラにアクセスできません: ' + e.message, 'error');
       document.getElementById('captureBtn').disabled = true;
     }
   }
 
   function closeCamera() {
-    stopCamera();
+    stopBarcodeLoop();
+    stopStream();
     document.getElementById('cameraModal').classList.remove('open');
   }
 
-  function stopCamera() {
-    if (cameraStream) {
-      cameraStream.getTracks().forEach(t => t.stop());
-      cameraStream = null;
-    }
+  function stopStream() {
+    if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
   }
 
   function resetCameraUI() {
+    stopBarcodeLoop();
     capturedDataUrl = null;
-    const video = document.getElementById('cameraVideo');
-    const preview = document.getElementById('capturedPreview');
-    video.style.display = 'block';
-    preview.style.display = 'none';
+    document.getElementById('cameraVideo').style.display = 'block';
+    document.getElementById('capturedPreview').style.display = 'none';
     document.getElementById('ocrResult').style.display = 'none';
-    document.getElementById('captureBtn').style.display = '';
+    document.getElementById('captureBtn').style.display = camMode === 'ocr' ? '' : 'none';
     document.getElementById('captureBtn').disabled = false;
     document.getElementById('retakeBtn').style.display = 'none';
     document.getElementById('ocrBtn').style.display = 'none';
     document.getElementById('appendBtn').style.display = 'none';
-    showStatus('cameraStatus', '', '');
+    document.getElementById('scanLine').style.display = camMode === 'barcode' ? 'block' : 'none';
+    if (camMode === 'barcode') {
+      setCamStatus('バーコード（ISBN）をスキャン枠に合わせてください', '');
+      startBarcodeLoop();
+    } else {
+      setCamStatus('本のページを撮影して「📸 撮影」を押してください', '');
+    }
   }
 
+  // ---- バーコードスキャン ----
+  function startBarcodeLoop() {
+    if (!('BarcodeDetector' in window)) {
+      setCamStatus('⚠️ このブラウザはバーコードスキャン非対応。ISBNを手入力してください。', 'error');
+      return;
+    }
+    if (!barcodeDetector) {
+      barcodeDetector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a'] });
+    }
+    stopBarcodeLoop();
+    barcodeTimer = setInterval(scanBarcode, 500);
+  }
+
+  function stopBarcodeLoop() {
+    if (barcodeTimer) { clearInterval(barcodeTimer); barcodeTimer = null; }
+  }
+
+  async function scanBarcode() {
+    const video = document.getElementById('cameraVideo');
+    if (!video.videoWidth) return;
+    try {
+      const barcodes = await barcodeDetector.detect(video);
+      if (barcodes.length === 0) return;
+      const code = barcodes[0].rawValue;
+      stopBarcodeLoop();
+      setCamStatus('📦 ISBN検出: ' + code + ' — 書籍情報を取得中...', 'info');
+      await fetchBookByISBN(code);
+    } catch (e) { /* 検出失敗は無視 */ }
+  }
+
+  async function fetchBookByISBN(isbn) {
+    try {
+      // OpenBD（日本の書籍情報API）
+      const res = await fetch(`https://api.openbd.jp/v1/get?isbn=${isbn}`);
+      const data = await res.json();
+      const summary = data?.[0]?.summary;
+
+      if (summary) {
+        const title = summary.title || '';
+        const author = summary.author || '';
+        const publisher = summary.publisher || '';
+        if (title) document.getElementById('addTitle').value = title;
+        if (author) document.getElementById('addAuthor').value = author;
+        setCamStatus(`✅ 取得完了！「${title}」`, 'success');
+        setTimeout(() => closeCamera(), 1200);
+      } else {
+        // Google Books APIにフォールバック
+        const gres = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+        const gdata = await gres.json();
+        const info = gdata?.items?.[0]?.volumeInfo;
+        if (info) {
+          if (info.title) document.getElementById('addTitle').value = info.title;
+          if (info.authors) document.getElementById('addAuthor').value = info.authors.join(', ');
+          setCamStatus(`✅ 取得完了！「${info.title}」`, 'success');
+          setTimeout(() => closeCamera(), 1200);
+        } else {
+          setCamStatus('⚠️ 書籍情報が見つかりませんでした。手入力してください。', 'error');
+          setTimeout(() => { setCamStatus('バーコードを合わせてください', ''); startBarcodeLoop(); }, 2500);
+        }
+      }
+    } catch (e) {
+      setCamStatus('❌ 取得エラー: ' + e.message, 'error');
+      setTimeout(() => { setCamStatus('バーコードを合わせてください', ''); startBarcodeLoop(); }, 2500);
+    }
+  }
+
+  // ---- OCR撮影 ----
   function capture() {
     const video = document.getElementById('cameraVideo');
     const canvas = document.getElementById('cameraCanvas');
@@ -734,41 +894,29 @@ ${text.slice(0, 8000)}`;
     canvas.getContext('2d').drawImage(video, 0, 0);
     capturedDataUrl = canvas.toDataURL('image/jpeg', 0.92);
 
-    const preview = document.getElementById('capturedPreview');
-    preview.src = capturedDataUrl;
-    preview.style.display = 'block';
+    document.getElementById('capturedPreview').src = capturedDataUrl;
+    document.getElementById('capturedPreview').style.display = 'block';
     video.style.display = 'none';
-
-    stopCamera();
+    stopStream();
 
     document.getElementById('captureBtn').style.display = 'none';
     document.getElementById('retakeBtn').style.display = '';
     document.getElementById('ocrBtn').style.display = '';
-    showStatus('cameraStatus', '📸 撮影しました。OCRを実行してください。', 'info');
+    setCamStatus('📸 撮影しました。「🔍 OCR」を押してください。', 'info');
   }
 
   async function retake() {
     resetCameraUI();
-    try {
-      cameraStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
-      });
-      document.getElementById('cameraVideo').srcObject = cameraStream;
-    } catch (e) {
-      showStatus('cameraStatus', '❌ カメラにアクセスできません: ' + e.message, 'error');
-    }
+    await startStream();
   }
 
   async function runOCR() {
     if (!capturedDataUrl) return;
-
     const btn = document.getElementById('ocrBtn');
     btn.disabled = true;
-    btn.textContent = '⏳ 解析中...';
-    showStatus('cameraStatus', '⏳ Geminiでテキストを読み取っています...', 'info');
-
+    btn.textContent = '⏳';
+    setCamStatus('⏳ Geminiでテキストを読み取り中...', 'info');
     const base64 = capturedDataUrl.split(',')[1];
-
     try {
       const data = await callGemini([{
         parts: [
@@ -776,19 +924,17 @@ ${text.slice(0, 8000)}`;
           { inline_data: { mime_type: 'image/jpeg', data: base64 } }
         ]
       }], 'gemini-3.1-flash-lite');
-
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
       const resultBox = document.getElementById('ocrResult');
       resultBox.textContent = text;
       resultBox.style.display = 'block';
       document.getElementById('appendBtn').style.display = '';
-      showStatus('cameraStatus', '✅ OCR完了', 'success');
+      setCamStatus('✅ OCR完了', 'success');
     } catch (e) {
-      showStatus('cameraStatus', '❌ エラー: ' + e.message, 'error');
+      setCamStatus('❌ エラー: ' + e.message, 'error');
     } finally {
       btn.disabled = false;
-      btn.textContent = '🔍 OCR実行';
+      btn.textContent = '🔍 OCR';
     }
   }
 
@@ -799,6 +945,12 @@ ${text.slice(0, 8000)}`;
     closeCamera();
     showStatus('addStatus', '✅ OCRテキストを追加しました', 'success');
     setTimeout(() => showStatus('addStatus', '', ''), 3000);
+  }
+
+  function setCamStatus(msg, type) {
+    const el = document.getElementById('cameraStatus');
+    el.textContent = msg;
+    el.className = 'cam-status' + (type ? ' ' + type : '');
   }
 </script>
 </body>
