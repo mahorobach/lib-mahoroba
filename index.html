@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>まほろばライブラリー</title>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -436,10 +437,12 @@
     </div>
     <!-- ビューファインダー -->
     <div class="cam-viewfinder">
-      <video id="cameraVideo" autoplay playsinline muted></video>
-      <canvas id="cameraCanvas"></canvas>
-      <img id="capturedPreview" alt="撮影画像">
-      <div class="cam-scan-line" id="scanLine"></div>
+      <!-- ISBNモード: html5-qrcode が描画するエリア -->
+      <div id="isbn-reader" style="width:100%;height:100%;"></div>
+      <!-- OCRモード -->
+      <video id="cameraVideo" autoplay playsinline muted style="display:none;width:100%;height:100%;object-fit:cover;"></video>
+      <canvas id="cameraCanvas" style="display:none;"></canvas>
+      <img id="capturedPreview" alt="撮影画像" style="display:none;width:100%;height:100%;object-fit:contain;">
     </div>
     <!-- フッター（常に画面内） -->
     <div class="cam-footer">
@@ -754,16 +757,15 @@ ${text.slice(0, 8000)}`;
   // ---- Camera ----
   let cameraStream = null;
   let capturedDataUrl = null;
-  let camMode = 'barcode'; // 'barcode' | 'ocr'
-  let barcodeDetector = null;
-  let barcodeTimer = null;
+  let camMode = 'barcode';
+  let html5QrScanner = null;
 
   function setCamMode(mode) {
+    if (camMode === mode) return;
     camMode = mode;
     document.getElementById('modeBarcode').classList.toggle('active', mode === 'barcode');
     document.getElementById('modeOcr').classList.toggle('active', mode === 'ocr');
-    document.getElementById('scanLine').style.display = mode === 'barcode' ? 'block' : 'none';
-    resetCameraUI();
+    stopAllCamera().then(() => startCamMode());
   }
 
   async function openCamera() {
@@ -771,38 +773,40 @@ ${text.slice(0, 8000)}`;
     camMode = 'barcode';
     document.getElementById('modeBarcode').classList.add('active');
     document.getElementById('modeOcr').classList.remove('active');
-    resetCameraUI();
-    await startStream();
+    await startCamMode();
   }
 
-  async function startStream() {
-    try {
-      cameraStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
-      });
-      const video = document.getElementById('cameraVideo');
-      video.srcObject = cameraStream;
-      if (camMode === 'barcode') startBarcodeLoop();
-    } catch (e) {
-      setCamStatus('❌ カメラにアクセスできません: ' + e.message, 'error');
-      document.getElementById('captureBtn').disabled = true;
+  async function startCamMode() {
+    resetCameraUI();
+    if (camMode === 'barcode') {
+      await startIsbnScanner();
+    } else {
+      await startOcrStream();
+    }
+  }
+
+  async function stopAllCamera() {
+    // html5-qrcode を停止
+    if (html5QrScanner) {
+      try { await html5QrScanner.stop(); } catch(e) {}
+      html5QrScanner = null;
+    }
+    // OCR用ストリームを停止
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(t => t.stop());
+      cameraStream = null;
     }
   }
 
   function closeCamera() {
-    stopBarcodeLoop();
-    stopStream();
+    stopAllCamera();
     document.getElementById('cameraModal').classList.remove('open');
   }
 
-  function stopStream() {
-    if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
-  }
-
   function resetCameraUI() {
-    stopBarcodeLoop();
     capturedDataUrl = null;
-    document.getElementById('cameraVideo').style.display = 'block';
+    document.getElementById('isbn-reader').style.display = camMode === 'barcode' ? 'block' : 'none';
+    document.getElementById('cameraVideo').style.display = 'none';
     document.getElementById('capturedPreview').style.display = 'none';
     document.getElementById('ocrResult').style.display = 'none';
     document.getElementById('captureBtn').style.display = camMode === 'ocr' ? '' : 'none';
@@ -810,82 +814,78 @@ ${text.slice(0, 8000)}`;
     document.getElementById('retakeBtn').style.display = 'none';
     document.getElementById('ocrBtn').style.display = 'none';
     document.getElementById('appendBtn').style.display = 'none';
-    document.getElementById('scanLine').style.display = camMode === 'barcode' ? 'block' : 'none';
-    if (camMode === 'barcode') {
-      setCamStatus('バーコード（ISBN）をスキャン枠に合わせてください', '');
-      startBarcodeLoop();
-    } else {
-      setCamStatus('本のページを撮影して「📸 撮影」を押してください', '');
-    }
   }
 
-  // ---- バーコードスキャン ----
-  function startBarcodeLoop() {
-    if (!('BarcodeDetector' in window)) {
-      setCamStatus('⚠️ このブラウザはバーコードスキャン非対応。ISBNを手入力してください。', 'error');
-      return;
-    }
-    if (!barcodeDetector) {
-      barcodeDetector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a'] });
-    }
-    stopBarcodeLoop();
-    barcodeTimer = setInterval(scanBarcode, 500);
-  }
-
-  function stopBarcodeLoop() {
-    if (barcodeTimer) { clearInterval(barcodeTimer); barcodeTimer = null; }
-  }
-
-  async function scanBarcode() {
-    const video = document.getElementById('cameraVideo');
-    if (!video.videoWidth) return;
+  // ---- ISBNスキャン（html5-qrcode） ----
+  async function startIsbnScanner() {
+    setCamStatus('バーコード（ISBN）をカメラに向けてください', '');
+    // 前回の残骸をクリア
+    document.getElementById('isbn-reader').innerHTML = '';
+    html5QrScanner = new Html5Qrcode('isbn-reader');
     try {
-      const barcodes = await barcodeDetector.detect(video);
-      if (barcodes.length === 0) return;
-      const code = barcodes[0].rawValue;
-      stopBarcodeLoop();
-      setCamStatus('📦 ISBN検出: ' + code + ' — 書籍情報を取得中...', 'info');
-      await fetchBookByISBN(code);
-    } catch (e) { /* 検出失敗は無視 */ }
+      await html5QrScanner.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 280, height: 100 }, supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA] },
+        async (decodedText) => {
+          await html5QrScanner.stop();
+          html5QrScanner = null;
+          setCamStatus('📦 ISBN: ' + decodedText + ' — 検索中...', 'info');
+          await fetchBookByISBN(decodedText);
+        },
+        () => {} // エラーは無視
+      );
+    } catch (e) {
+      setCamStatus('❌ カメラ起動エラー: ' + e.message, 'error');
+    }
   }
 
   async function fetchBookByISBN(isbn) {
     try {
-      // OpenBD（日本の書籍情報API）
       const res = await fetch(`https://api.openbd.jp/v1/get?isbn=${isbn}`);
       const data = await res.json();
       const summary = data?.[0]?.summary;
-
-      if (summary) {
-        const title = summary.title || '';
-        const author = summary.author || '';
-        const publisher = summary.publisher || '';
-        if (title) document.getElementById('addTitle').value = title;
-        if (author) document.getElementById('addAuthor').value = author;
-        setCamStatus(`✅ 取得完了！「${title}」`, 'success');
+      if (summary?.title) {
+        document.getElementById('addTitle').value = summary.title;
+        if (summary.author) document.getElementById('addAuthor').value = summary.author;
+        setCamStatus(`✅「${summary.title}」を入力しました`, 'success');
+        setTimeout(() => closeCamera(), 1200);
+        return;
+      }
+      // フォールバック: Google Books
+      const gres = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+      const gdata = await gres.json();
+      const info = gdata?.items?.[0]?.volumeInfo;
+      if (info?.title) {
+        document.getElementById('addTitle').value = info.title;
+        if (info.authors) document.getElementById('addAuthor').value = info.authors.join(', ');
+        setCamStatus(`✅「${info.title}」を入力しました`, 'success');
         setTimeout(() => closeCamera(), 1200);
       } else {
-        // Google Books APIにフォールバック
-        const gres = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
-        const gdata = await gres.json();
-        const info = gdata?.items?.[0]?.volumeInfo;
-        if (info) {
-          if (info.title) document.getElementById('addTitle').value = info.title;
-          if (info.authors) document.getElementById('addAuthor').value = info.authors.join(', ');
-          setCamStatus(`✅ 取得完了！「${info.title}」`, 'success');
-          setTimeout(() => closeCamera(), 1200);
-        } else {
-          setCamStatus('⚠️ 書籍情報が見つかりませんでした。手入力してください。', 'error');
-          setTimeout(() => { setCamStatus('バーコードを合わせてください', ''); startBarcodeLoop(); }, 2500);
-        }
+        setCamStatus('⚠️ 書籍情報が見つかりません。再スキャンします...', 'error');
+        setTimeout(() => startIsbnScanner(), 2000);
       }
     } catch (e) {
       setCamStatus('❌ 取得エラー: ' + e.message, 'error');
-      setTimeout(() => { setCamStatus('バーコードを合わせてください', ''); startBarcodeLoop(); }, 2500);
+      setTimeout(() => startIsbnScanner(), 2000);
     }
   }
 
   // ---- OCR撮影 ----
+  async function startOcrStream() {
+    setCamStatus('本のページを撮影して「📸 撮影」を押してください', '');
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+      });
+      const video = document.getElementById('cameraVideo');
+      video.srcObject = cameraStream;
+      video.style.display = 'block';
+    } catch (e) {
+      setCamStatus('❌ カメラにアクセスできません: ' + e.message, 'error');
+      document.getElementById('captureBtn').disabled = true;
+    }
+  }
+
   function capture() {
     const video = document.getElementById('cameraVideo');
     const canvas = document.getElementById('cameraCanvas');
@@ -897,17 +897,17 @@ ${text.slice(0, 8000)}`;
     document.getElementById('capturedPreview').src = capturedDataUrl;
     document.getElementById('capturedPreview').style.display = 'block';
     video.style.display = 'none';
-    stopStream();
+    if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
 
     document.getElementById('captureBtn').style.display = 'none';
     document.getElementById('retakeBtn').style.display = '';
     document.getElementById('ocrBtn').style.display = '';
-    setCamStatus('📸 撮影しました。「🔍 OCR」を押してください。', 'info');
+    setCamStatus('📸 撮影完了。「🔍 OCR」を押してください。', 'info');
   }
 
   async function retake() {
     resetCameraUI();
-    await startStream();
+    await startOcrStream();
   }
 
   async function runOCR() {
