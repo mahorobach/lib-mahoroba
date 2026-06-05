@@ -245,15 +245,17 @@
     }
     .cam-mode-tab.active { background: #e2b96f; color: #1a1a2e; border-color: #e2b96f; font-weight: bold; }
     .cam-viewfinder {
-      flex: 1;
+      flex: 0 0 auto;
+      height: calc(100vh - 180px); /* ヘッダー＋フッター分を確保 */
+      max-height: 55vh;            /* 画面の半分以上は使わない */
       background: #000;
       position: relative;
       overflow: hidden;
-      min-height: 0;
     }
     #cameraVideo { width: 100%; height: 100%; object-fit: cover; display: block; }
     #cameraCanvas { display: none; }
     #capturedPreview { width: 100%; height: 100%; object-fit: contain; display: none; }
+    #isbn-reader { width: 100%; height: 100%; }
     .cam-scan-line {
       position: absolute;
       left: 10%; right: 10%;
@@ -757,7 +759,7 @@ ${text.slice(0, 8000)}`;
   // ---- Camera ----
   let cameraStream = null;
   let capturedDataUrl = null;
-  let camMode = 'barcode';
+  let camMode = 'ocr';
   let html5QrScanner = null;
 
   function setCamMode(mode) {
@@ -770,9 +772,9 @@ ${text.slice(0, 8000)}`;
 
   async function openCamera() {
     document.getElementById('cameraModal').classList.add('open');
-    camMode = 'barcode';
-    document.getElementById('modeBarcode').classList.add('active');
-    document.getElementById('modeOcr').classList.remove('active');
+    camMode = 'ocr';
+    document.getElementById('modeOcr').classList.add('active');
+    document.getElementById('modeBarcode').classList.remove('active');
     await startCamMode();
   }
 
