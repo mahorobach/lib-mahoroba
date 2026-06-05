@@ -288,6 +288,34 @@
     .cam-btn-row { display: flex; gap: 8px; }
     .cam-btn-row button { flex: 1; padding: 13px 8px; font-size: 14px; font-weight: bold; }
 
+    /* ドロップゾーン */
+    .drop-zone {
+      border: 2px dashed #1a4a7a;
+      border-radius: 8px;
+      padding: 24px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      background: #0f1f3a;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: #e2b96f;
+      background: #0f2a4a;
+    }
+    .drop-zone p { color: #aaa; font-size: 14px; }
+
+    /* モバイル／PC 出し分け */
+    @media (hover: none) and (pointer: coarse) {
+      /* タッチデバイス＝モバイル */
+      .pc-only { display: none !important; }
+      .mobile-only { display: block !important; }
+    }
+    @media (hover: hover) and (pointer: fine) {
+      /* マウス操作＝PC */
+      .pc-only { display: block !important; }
+      .mobile-only { display: none !important; }
+    }
+
     /* モバイル対応（モーダル以外） */
     @media (max-width: 600px) {
       .modal { padding: 16px; }
@@ -359,18 +387,23 @@
     <div class="card">
       <h2 style="color:#e2b96f;margin-bottom:16px">本を追加</h2>
 
-      <div class="row" style="margin-bottom:12px">
-        <div>
-          <label>書名 *</label>
-          <input type="text" id="addTitle" placeholder="古事記">
-        </div>
-        <div>
-          <label>著者</label>
-          <input type="text" id="addAuthor" placeholder="太安万侶">
+      <!-- 書名 + バーコードボタン -->
+      <div style="margin-bottom:12px">
+        <label>書名 *</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" id="addTitle" placeholder="古事記" style="flex:1">
+          <button class="btn-secondary" onclick="openIsbnScanner()" style="white-space:nowrap;padding:10px 12px">📦 バーコード</button>
         </div>
       </div>
 
-      <div class="row" style="margin-bottom:12px">
+      <!-- 著者 -->
+      <div style="margin-bottom:12px">
+        <label>著者</label>
+        <input type="text" id="addAuthor" placeholder="太安万侶">
+      </div>
+
+      <!-- カテゴリ・タグ -->
+      <div class="row" style="margin-bottom:20px">
         <div>
           <label>カテゴリ</label>
           <select id="addCategory">
@@ -387,29 +420,38 @@
         </div>
       </div>
 
+      <!-- 本文入力エリア -->
       <div style="margin-bottom:12px">
-        <label>出典</label>
-        <select id="addSource">
-          <option value="青空文庫">青空文庫</option>
-          <option value="自炊">自炊</option>
-          <option value="手入力">手入力</option>
-        </select>
-      </div>
+        <label>本文テキスト</label>
 
-      <div style="margin-bottom:12px">
-        <label>テキスト（ペーストまたは入力）</label>
-        <textarea id="addText" placeholder="本文をここにペースト...&#10;&#10;要約のみ手入力も可。" style="min-height:200px"></textarea>
-        <div class="btn-row" style="margin-top:8px">
-          <button class="btn-secondary" onclick="openCamera()">📷 カメラで撮影してOCR</button>
+        <!-- モバイル：カメラOCRボタン -->
+        <div class="mobile-only" style="margin-bottom:8px">
+          <button class="btn-secondary" style="width:100%;padding:14px" onclick="openOcrCamera()">
+            📷 カメラで撮影してOCR
+          </button>
         </div>
+
+        <!-- PC：ドラッグ&ドロップ / ファイルアップロード -->
+        <div class="pc-only" style="margin-bottom:8px">
+          <div id="dropZone" class="drop-zone" onclick="document.getElementById('fileInput').click()">
+            <div class="drop-zone-inner">
+              <p>🖼 画像・PDFをここにドロップ</p>
+              <p style="font-size:12px;color:#888;margin-top:4px">またはクリックして選択（JPG / PNG / PDF）</p>
+            </div>
+          </div>
+          <input type="file" id="fileInput" accept="image/*,.pdf" style="display:none" onchange="handleFileSelect(event)">
+        </div>
+
+        <!-- テキストエリア（手入力・修正） -->
+        <textarea id="addText" placeholder="ここに本文を貼り付け、またはカメラ/ファイルでOCR後に修正できます。" style="min-height:160px"></textarea>
       </div>
 
+      <!-- 要約 -->
       <div style="margin-bottom:12px">
         <label>要約（短・3行）</label>
         <textarea id="addSummaryShort" placeholder="手動入力 or 自動生成" style="min-height:80px"></textarea>
       </div>
-
-      <div style="margin-bottom:12px">
+      <div style="margin-bottom:16px">
         <label>要約（詳細）</label>
         <textarea id="addSummaryFull" placeholder="手動入力 or 自動生成" style="min-height:120px"></textarea>
       </div>
@@ -641,7 +683,6 @@
       summary_short: document.getElementById('addSummaryShort').value.trim(),
       summary_full: document.getElementById('addSummaryFull').value.trim(),
       full_text: document.getElementById('addText').value.trim(),
-      source: document.getElementById('addSource').value,
       created_at: new Date().toISOString(),
     };
 
@@ -780,13 +821,26 @@ ${text.slice(0, 8000)}`;
     stopAllCamera().then(() => startCamMode());
   }
 
-  async function openCamera() {
+  // 書名バーコード専用
+  async function openIsbnScanner() {
+    document.getElementById('cameraModal').classList.add('open');
+    camMode = 'barcode';
+    document.getElementById('modeBarcode').classList.add('active');
+    document.getElementById('modeOcr').classList.remove('active');
+    await startCamMode();
+  }
+
+  // 本文OCR専用
+  async function openOcrCamera() {
     document.getElementById('cameraModal').classList.add('open');
     camMode = 'ocr';
     document.getElementById('modeOcr').classList.add('active');
     document.getElementById('modeBarcode').classList.remove('active');
     await startCamMode();
   }
+
+  // 後方互換（旧コードから呼ばれる場合）
+  async function openCamera() { await openOcrCamera(); }
 
   async function startCamMode() {
     resetCameraUI();
@@ -974,6 +1028,96 @@ ${text.slice(0, 8000)}`;
     const el = document.getElementById('cameraStatus');
     el.textContent = msg;
     el.className = 'cam-status' + (type ? ' ' + type : '');
+  }
+
+  // ---- ドラッグ&ドロップ / ファイルアップロード ----
+  window.addEventListener('load', () => {
+    const zone = document.getElementById('dropZone');
+    if (!zone) return;
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) processFile(file);
+    });
+  });
+
+  function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (file) processFile(file);
+    e.target.value = '';
+  }
+
+  async function processFile(file) {
+    const type = file.type;
+    showStatus('addStatus', '⏳ ファイルを処理中...', 'info');
+
+    if (type.startsWith('image/')) {
+      await ocrImageFile(file);
+    } else if (type === 'application/pdf') {
+      await extractPdfText(file);
+    } else {
+      showStatus('addStatus', '❌ 対応形式は画像（JPG/PNG）またはPDFです', 'error');
+    }
+  }
+
+  async function ocrImageFile(file) {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64 = e.target.result.split(',')[1];
+      const mime = file.type;
+      showStatus('addStatus', '⏳ Geminiでテキストを読み取り中...', 'info');
+      try {
+        const data = await callGemini([{
+          parts: [
+            { text: 'この画像に写っているテキストをすべて正確に読み取ってください。レイアウトや段落を保持して出力してください。テキスト以外の説明は不要です。' },
+            { inline_data: { mime_type: mime, data: base64 } }
+          ]
+        }], 'gemini-3.1-flash-lite');
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const cur = document.getElementById('addText').value;
+        document.getElementById('addText').value = cur ? cur + '\n\n' + text : text;
+        showStatus('addStatus', '✅ OCR完了', 'success');
+      } catch (err) {
+        showStatus('addStatus', '❌ エラー: ' + err.message, 'error');
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function extractPdfText(file) {
+    // PDF.jsを動的ロードして全ページのテキストを抽出
+    if (!window.pdfjsLib) {
+      showStatus('addStatus', '⏳ PDF処理エンジンを読み込み中...', 'info');
+      await loadScript('https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js');
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+    }
+    showStatus('addStatus', '⏳ PDFからテキストを抽出中...', 'info');
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let fullText = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        fullText += content.items.map(s => s.str).join('') + '\n\n';
+      }
+      const cur = document.getElementById('addText').value;
+      document.getElementById('addText').value = cur ? cur + '\n\n' + fullText.trim() : fullText.trim();
+      showStatus('addStatus', `✅ PDF ${pdf.numPages}ページのテキストを抽出しました`, 'success');
+    } catch (err) {
+      showStatus('addStatus', '❌ PDF読み込みエラー: ' + err.message, 'error');
+    }
+  }
+
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src; s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
   }
 </script>
 </body>
