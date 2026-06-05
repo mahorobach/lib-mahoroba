@@ -261,11 +261,8 @@
 
     /* ISBNモード：html5-qrcodeに高さを任せる */
     #isbn-reader { width: 100%; }
-    #isbn-reader video { width: 100% !important; height: auto !important; object-fit: cover !important; }
+    #isbn-reader video { width: 100% !important; }
     #isbn-reader canvas { width: 100% !important; }
-    /* html5-qrcodeが生成するコンテナの余白を除去 */
-    #isbn-reader > div { margin: 0 !important; padding: 0 !important; }
-    #qr-shaded-region { border-width: 0 !important; }
     .cam-scan-line {
       position: absolute;
       left: 10%; right: 10%;
@@ -484,10 +481,7 @@
     <!-- ヘッダー -->
     <div class="cam-header">
       <h2 id="camTitle">📷 カメラ</h2>
-      <div class="cam-mode-tabs">
-        <button class="cam-mode-tab active" id="modeBarcode" onclick="setCamMode('barcode')">📦 ISBN</button>
-        <button class="cam-mode-tab" id="modeOcr" onclick="setCamMode('ocr')">📄 OCR</button>
-      </div>
+      <button class="btn-secondary" onclick="closeCamera()" style="padding:6px 14px;font-size:13px">✕ 閉じる</button>
     </div>
     <!-- ビューファインダー -->
     <div class="cam-viewfinder">
@@ -503,11 +497,10 @@
       <div class="cam-status" id="cameraStatus">バーコード（ISBN）をスキャン枠に合わせてください</div>
       <div id="ocrResult" class="ocr-result" style="display:none"></div>
       <div class="cam-btn-row">
-        <button class="btn-secondary" onclick="closeCamera()">✕ 閉じる</button>
         <button class="btn-secondary" id="retakeBtn" onclick="retake()" style="display:none">↩ 撮り直し</button>
-        <button class="btn-primary" id="captureBtn" onclick="capture()">📸 撮影</button>
+        <button class="btn-primary" id="captureBtn" onclick="capture()" style="display:none">📸 撮影</button>
         <button class="btn-primary" id="ocrBtn" onclick="runOCR()" style="display:none">🔍 OCR</button>
-        <button class="btn-primary" id="appendBtn" onclick="appendToText()" style="display:none">✅ 追加</button>
+        <button class="btn-primary" id="appendBtn" onclick="appendToText()" style="display:none">✅ テキストに追加</button>
       </div>
     </div>
   </div>
@@ -816,8 +809,6 @@ ${text.slice(0, 8000)}`;
   function setCamMode(mode) {
     if (camMode === mode) return;
     camMode = mode;
-    document.getElementById('modeBarcode').classList.toggle('active', mode === 'barcode');
-    document.getElementById('modeOcr').classList.toggle('active', mode === 'ocr');
     stopAllCamera().then(() => startCamMode());
   }
 
@@ -825,17 +816,12 @@ ${text.slice(0, 8000)}`;
   async function openIsbnScanner() {
     document.getElementById('cameraModal').classList.add('open');
     camMode = 'barcode';
-    document.getElementById('modeBarcode').classList.add('active');
-    document.getElementById('modeOcr').classList.remove('active');
     await startCamMode();
   }
 
-  // 本文OCR専用
   async function openOcrCamera() {
     document.getElementById('cameraModal').classList.add('open');
     camMode = 'ocr';
-    document.getElementById('modeOcr').classList.add('active');
-    document.getElementById('modeBarcode').classList.remove('active');
     await startCamMode();
   }
 
@@ -877,11 +863,14 @@ ${text.slice(0, 8000)}`;
     document.getElementById('cameraVideo').style.display = 'none';
     document.getElementById('capturedPreview').style.display = 'none';
     document.getElementById('ocrResult').style.display = 'none';
+    // OCRモードのみ撮影ボタンを表示
     document.getElementById('captureBtn').style.display = camMode === 'ocr' ? '' : 'none';
     document.getElementById('captureBtn').disabled = false;
     document.getElementById('retakeBtn').style.display = 'none';
     document.getElementById('ocrBtn').style.display = 'none';
     document.getElementById('appendBtn').style.display = 'none';
+    // ヘッダータイトルを更新
+    document.getElementById('camTitle').textContent = camMode === 'barcode' ? '📦 バーコード（ISBN）' : '📷 OCR撮影';
   }
 
   // ---- ISBNスキャン（html5-qrcode） ----
